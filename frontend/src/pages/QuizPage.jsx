@@ -223,20 +223,26 @@ const QuizPage = () => {
   return (
     <div id="main-content-wrapper">
         <div className="quiz-container">
-            <div id="question-number">
-                Module {moduleId} - Question {currentIndex + 1} of {questions.length}
-            </div>
-            <div id="mcq-id-display">
-                MCQ ID: {currentQuestion.mcq_id}
-            </div>
-            <div id="labels-display">
-                Labels: {currentQuestion.labels?.join(', ') || 'None'}
+            <div id="quiz-metadata-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <div id="question-number">
+                        Module {moduleId} - Question {currentIndex + 1} of {questions.length}
+                    </div>
+                    <div id="mcq-id-display">
+                        MCQ ID: {currentQuestion.mcq_id}
+                    </div>
+                    <div id="labels-display">
+                        Labels: {currentQuestion.labels?.join(', ') || 'None'}
+                    </div>
+                </div>
+
+                {/* Timer Display - Stopwatch */}
+                <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
+                    {formatTime(elapsedTime)}
+                </div>
             </div>
 
-            {/* Timer Display - Stopwatch */}
-            <div style={{ textAlign: 'right', fontSize: '1.5em', fontWeight: 'bold', marginBottom: '15px' }}>
-                {formatTime(elapsedTime)}
-            </div>
+            <hr style={{ margin: '15px 0' }} />
 
             <div id="question-area">
                 <QuestionCard
@@ -261,7 +267,7 @@ const QuizPage = () => {
 
             <hr />
 
-            <div className="navigation-buttons" style={{ position: 'sticky', bottom: '0', background: 'inherit', padding: '10px 0', borderTop: '1px solid #ddd', zIndex: 10 }}>
+            <div className="navigation-buttons" style={{ position: 'sticky', bottom: '0', background: 'inherit', padding: '10px 0', zIndex: 10 }}>
                 <button
                     id="prev-btn"
                     onClick={handlePrevious}
