@@ -3,21 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getQuestions, submitAttempt, updateAttempt } from '../api';
 import QuestionCard from '../components/QuestionCard';
 import ExplanationView from '../components/ExplanationView';
-import StickyFooter from '../components/StickyFooter';
-import { ArrowLeft, CheckCircle, Home } from 'lucide-react';
+import { CheckCircle, Home } from 'lucide-react';
 
 /**
  * The main quiz interface component.
- *
- * Manages the state of the quiz session, including:
- * - Fetching questions.
- * - Tracking current question index.
- * - Handling user answers and submission.
- * - Managing timers for thinking and explanation phases.
- * - Displaying quiz results upon completion.
- *
- * @component
- * @returns {JSX.Element} The rendered quiz page.
+ * Refactored to match specific UI requirements and CSS structure.
  */
 const QuizPage = () => {
   const { subjectId, moduleId } = useParams();
@@ -37,73 +27,94 @@ const QuizPage = () => {
   const [currentAttemptId, setCurrentAttemptId] = useState(null);
 
   // History State
-  const [userAnswers, setUserAnswers] = useState({}); // Map: index -> { selectedIndex, isCorrect, attemptId }
+  const [userAnswers, setUserAnswers] = useState({}); // Map: index -> { selectedIndex, isCorrect, attemptId, timeTaken }
 
   // Timers
-  const timerRef = useRef(null);
   const startTimeRef = useRef(0);
   const thinkingTimeRef = useRef(0);
-  const explanationTimeRef = useRef(0); // Actually cumulative time since answer reveal
+  const explanationTimeRef = useRef(0);
+
+  // Visual Timer State
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Apply Quiz Mode Theme to Body
+  useEffect(() => {
+    document.body.classList.add('quiz-mode');
+    return () => {
+      document.body.classList.remove('quiz-mode');
+    };
+  }, []);
+
+  // Helper to format time
+  const formatTime = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const startThinkingTimer = () => {
+    startTimeRef.current = Date.now();
+    thinkingTimeRef.current = 0;
+    explanationTimeRef.current = 0;
+    setElapsedTime(0);
+  };
+
+  const stopThinkingTimer = () => {
+    const now = Date.now();
+    thinkingTimeRef.current = (now - startTimeRef.current) / 1000;
+    startTimeRef.current = now; // Reset for explanation
+  };
+
+  const stopExplanationTimer = () => {
+    const now = Date.now();
+    explanationTimeRef.current = (now - startTimeRef.current) / 1000;
+  };
 
   // Load Questions
   useEffect(() => {
     getQuestions(subjectId, moduleId).then(data => {
       setQuestions(data);
       setLoading(false);
-      // Start timer for first question
       startThinkingTimer();
     }).catch(err => {
       console.error(err);
       setLoading(false);
     });
-
-    return () => clearInterval(timerRef.current);
   }, [subjectId, moduleId]);
 
-  /**
-   * Starts the timer for the "thinking" phase (before answering).
-   */
-  const startThinkingTimer = () => {
-    startTimeRef.current = Date.now();
-    thinkingTimeRef.current = 0;
-    explanationTimeRef.current = 0;
-  };
+  // Timer Logic
+  useEffect(() => {
+    let interval;
+    // Only run timer if not loading, not completed, and explicitly not history mode
+    const isHistory = userAnswers[currentIndex] !== undefined;
 
-  /**
-   * Stops the thinking timer and records the elapsed time.
-   * Resets the start time to begin tracking explanation time.
-   */
-  const stopThinkingTimer = () => {
-    const now = Date.now();
-    thinkingTimeRef.current = (now - startTimeRef.current) / 1000;
-    startTimeRef.current = now; // Reset start time for explanation timer
-  };
+    if (!loading && !quizCompleted && !isHistory && !attempted) {
+        interval = setInterval(() => {
+            const now = Date.now();
+            // Calculate elapsed time based on start time ref to avoid drift
+            const seconds = Math.max(0, Math.floor((now - startTimeRef.current) / 1000));
+            setElapsedTime(seconds);
+        }, 1000);
+    } else if (attempted || isHistory) {
+        const recordedTime = userAnswers[currentIndex]?.timeTaken || (attempted ? thinkingTimeRef.current : 0);
+        setElapsedTime(Math.floor(recordedTime));
+    }
 
-  /**
-   * Stops the explanation timer and records the elapsed time.
-   */
-  const stopExplanationTimer = () => {
-    const now = Date.now();
-    explanationTimeRef.current = (now - startTimeRef.current) / 1000;
-  };
+    return () => clearInterval(interval);
+  }, [loading, quizCompleted, userAnswers, currentIndex, attempted]);
 
-  /**
-   * Handles the selection of an answer option.
-   * Stops timers, records the attempt in the backend, and updates local state.
-   *
-   * @param {number} optionIndex - The index of the selected option.
-   */
   const handleSelectOption = async (optionIndex) => {
     if (attempted) return;
 
     stopThinkingTimer();
+    const timeTaken = thinkingTimeRef.current;
+
     setAttempted(true);
     setSelectedOptionIndex(optionIndex);
 
     const currentQuestion = questions[currentIndex];
     const isCorrect = currentQuestion.options[optionIndex].is_correct_answer;
 
-    // Optimistic UI update, send to backend
     let newAttemptId = null;
     try {
         const result = await submitAttempt({
@@ -112,7 +123,7 @@ const QuizPage = () => {
             module: moduleId,
             selected_option: currentQuestion.options[optionIndex].text,
             is_correct: isCorrect,
-            time_taken_question_sec: thinkingTimeRef.current
+            time_taken_question_sec: timeTaken
         });
         newAttemptId = result.id;
         setCurrentAttemptId(result.id);
@@ -120,23 +131,34 @@ const QuizPage = () => {
         console.error("Failed to submit attempt", error);
     }
 
-    // Update history
     setUserAnswers(prev => ({
         ...prev,
         [currentIndex]: {
             selectedIndex: optionIndex,
             isCorrect: isCorrect,
-            attemptId: newAttemptId
+            attemptId: newAttemptId,
+            timeTaken: timeTaken
         }
     }));
   };
 
-  /**
-   * Navigates to the next question.
-   * Updates explanation timing for the current question before moving on.
-   */
+  const navigateToQuestion = (index) => {
+      const historyData = userAnswers[index];
+      if (historyData) {
+          setAttempted(true);
+          setSelectedOptionIndex(historyData.selectedIndex);
+          setCurrentAttemptId(historyData.attemptId);
+      } else {
+          setAttempted(false);
+          setSelectedOptionIndex(null);
+          setCurrentAttemptId(null);
+          startThinkingTimer();
+      }
+      setCurrentIndex(index);
+      window.scrollTo(0,0);
+  };
+
   const handleNext = async () => {
-    // If currently attempted, save explanation time
     if (attempted && currentAttemptId) {
         stopExplanationTimer();
         try {
@@ -148,52 +170,23 @@ const QuizPage = () => {
         }
     }
 
-    // If last question, show completion
     if (currentIndex >= questions.length - 1) {
         setQuizCompleted(true);
         return;
     }
 
-    // Move to next
-    const nextIndex = currentIndex + 1;
-    setCurrentIndex(nextIndex);
-    window.scrollTo(0,0);
+    navigateToQuestion(currentIndex + 1);
   };
 
-  /**
-   * Navigates to the previous question (history mode).
-   */
   const handlePrevious = () => {
       if (currentIndex > 0) {
-          setCurrentIndex(prev => prev - 1);
-          window.scrollTo(0,0);
+          navigateToQuestion(currentIndex - 1);
       }
   };
 
-  // Effect to restore state when navigating between questions
-  useEffect(() => {
-      const historyData = userAnswers[currentIndex];
+  if (loading) return <div style={{ padding: '20px' }}>Loading Quiz...</div>;
+  if (!questions || questions.length === 0) return <div style={{ padding: '20px' }}>No questions available.</div>;
 
-      if (historyData) {
-          // History Mode (Read Only)
-          setAttempted(true);
-          setSelectedOptionIndex(historyData.selectedIndex);
-          setCurrentAttemptId(historyData.attemptId);
-          // Don't start timers
-      } else {
-          // New Question (Active Mode)
-          setAttempted(false);
-          setSelectedOptionIndex(null);
-          setCurrentAttemptId(null);
-          startThinkingTimer();
-      }
-  }, [currentIndex, userAnswers, questions]); // questions dependency ensures it runs after load
-
-
-  if (loading) return <div className="text-white p-8">Loading Quiz...</div>;
-  if (!questions || questions.length === 0) return <div className="text-white p-8">No questions available.</div>;
-
-  // Quiz Summary View
   if (quizCompleted) {
       const total = questions.length;
       const correctCount = Object.values(userAnswers).filter(a => a.isCorrect).length;
@@ -213,7 +206,7 @@ const QuizPage = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/modules/${subjectId}`)}
+                    onClick={() => navigate(`/subject/${subjectId}`)}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                       <Home size={20} />
@@ -228,47 +221,65 @@ const QuizPage = () => {
   const isHistoryMode = userAnswers[currentIndex] !== undefined;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white pb-24">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 p-4 sticky top-0 z-30 flex items-center justify-between">
-         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white">
-            <ArrowLeft />
-         </button>
-         <div className="font-mono text-sm text-gray-500">
-            {isHistoryMode ? "History (Read Only)" : (attempted ? "Timer: Reviewing" : "Timer: Thinking")}
-         </div>
-      </div>
+    <div id="main-content-wrapper">
+        <div className="quiz-container">
+            <div id="question-number">
+                Module {moduleId} - Question {currentIndex + 1} of {questions.length}
+            </div>
+            <div id="mcq-id-display">
+                MCQ ID: {currentQuestion.mcq_id}
+            </div>
+            <div id="labels-display">
+                Labels: {currentQuestion.labels?.join(', ') || 'None'}
+            </div>
 
-      <div className="max-w-4xl mx-auto p-4 md:p-8">
-        <QuestionCard
-            question={currentQuestion}
-            selectedOption={selectedOptionIndex}
-            onSelectOption={handleSelectOption}
-            isAttempted={attempted}
-            correctAnswerIndex={currentQuestion.options.findIndex(o => o.is_correct_answer)}
-            isReadOnly={isHistoryMode}
-        />
+            {/* Timer Display - Stopwatch */}
+            <div style={{ textAlign: 'right', fontSize: '1.5em', fontWeight: 'bold', marginBottom: '15px' }}>
+                {formatTime(elapsedTime)}
+            </div>
 
-        {attempted && (
-            <ExplanationView
-                explanationElements={currentQuestion.explanation_elements}
-                references={currentQuestion.references}
-                stats={{
-                    time_taken_question_sec: isHistoryMode ? 0 : thinkingTimeRef.current // Don't show confusing 0s in history or store it
-                }}
-            />
-        )}
-      </div>
+            <div id="question-area">
+                <QuestionCard
+                    question={currentQuestion}
+                    selectedOption={selectedOptionIndex}
+                    onSelectOption={handleSelectOption}
+                    isAttempted={attempted}
+                    correctAnswerIndex={currentQuestion.options.findIndex(o => o.is_correct_answer)}
+                    isReadOnly={isHistoryMode}
+                />
+            </div>
 
-      <StickyFooter
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        disablePrevious={currentIndex === 0}
-        disableNext={!attempted}
-        currentIndex={currentIndex}
-        totalCount={questions.length}
-        isLastQuestion={currentIndex === questions.length - 1}
-      />
+            {attempted && (
+                <ExplanationView
+                    explanationElements={currentQuestion.explanation_elements}
+                    references={currentQuestion.references}
+                    stats={{
+                        time_taken_question_sec: userAnswers[currentIndex]?.timeTaken || 0
+                    }}
+                />
+            )}
+
+            <hr />
+
+            <div className="navigation-buttons" style={{ position: 'sticky', bottom: '0', background: 'inherit', padding: '10px 0', borderTop: '1px solid #ddd', zIndex: 10 }}>
+                <button
+                    id="prev-btn"
+                    onClick={handlePrevious}
+                    disabled={currentIndex === 0}
+                    style={{ opacity: currentIndex === 0 ? 0.5 : 1, cursor: currentIndex === 0 ? 'not-allowed' : 'pointer' }}
+                >
+                    Previous
+                </button>
+                <button
+                    id="next-btn"
+                    onClick={handleNext}
+                    disabled={!attempted}
+                    style={{ opacity: !attempted ? 0.5 : 1, cursor: !attempted ? 'not-allowed' : 'pointer' }}
+                >
+                    Next
+                </button>
+            </div>
+        </div>
     </div>
   );
 };

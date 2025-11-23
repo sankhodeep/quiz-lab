@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
-import { ZoomIn } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 
 /**
- * Displays the main question content and options.
- *
- * Handles both the active attempting state (where users can select an option)
- * and the review state (showing correct/incorrect answers).
+ * Displays the main question content and options using the provided CSS structure.
  *
  * @component
  * @param {Object} props - Component props.
@@ -28,10 +24,6 @@ const QuestionCard = ({ question, selectedOption, onSelectOption, isAttempted, c
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState('');
 
-  /**
-   * Opens the lightbox with the provided image source.
-   * @param {string} src - Image URL.
-   */
   const handleImageClick = (src) => {
     setLightboxSrc(src);
     setLightboxOpen(true);
@@ -39,71 +31,66 @@ const QuestionCard = ({ question, selectedOption, onSelectOption, isAttempted, c
 
   /**
    * Determines the CSS classes for an option based on its state (selected, correct, wrong).
-   *
-   * @param {number} index - Index of the option.
-   * @param {boolean} isCorrect - Whether this option is the correct one (not used logic-wise here but passed).
-   * @returns {string} CSS class string.
+   * Uses the provided CSS class names: option-btn, correct, incorrect, selected.
    */
-  const getOptionStyle = (index, isCorrect) => {
-    if (!isAttempted) {
-      // Active Mode: Just show selection state
-      return selectedOption === index
-        ? 'bg-blue-600 border-blue-500 text-white'
-        : 'bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700';
+  const getOptionClassName = (index) => {
+    let classes = 'option-btn';
+
+    if (isAttempted) {
+        if (index === correctAnswerIndex) {
+            classes += ' correct';
+        } else if (selectedOption === index) {
+            classes += ' incorrect';
+        } else if (selectedOption !== null && index !== selectedOption) {
+            // "answered" logic is handled by parent or just opacity
+        }
     }
 
-    // Review Mode
-    if (index === correctAnswerIndex) {
-      return 'bg-green-600 border-green-500 text-white'; // Always highlight correct answer
+    if (selectedOption === index) {
+        classes += ' selected';
     }
 
-    if (selectedOption === index && index !== correctAnswerIndex) {
-        return 'bg-red-600 border-red-500 text-white'; // Highlight wrong selection
-    }
-
-    return 'bg-gray-800 border-gray-700 text-gray-400 opacity-60'; // Dim other options
+    return classes;
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-6 shadow-lg border border-gray-800 mb-6">
-      <div className="flex justify-between items-start mb-4 text-sm text-gray-500">
-        <div>ID: {question.mcq_id}</div>
-        <div className="flex gap-2">
-            {question.labels?.map((label, i) => (
-                <span key={i} className="bg-gray-800 px-2 py-1 rounded text-xs">{label}</span>
-            ))}
-        </div>
+    // The container classes like "bg-gray-900" are removed to let the parent .quiz-container or CSS handle it.
+    // However, the CSS structure provided implies flat structure inside .quiz-container.
+    // But this component isolates the "Question Card" logic.
+    // I will render the text, image, and options here using the IDs/classes from the CSS.
+    <div className={isAttempted ? "answered" : ""}>
+
+      {/* Question Text */}
+      <div id="question-text">
+        {question.text}
       </div>
 
-      <h2 className="text-xl font-semibold text-white mb-6 leading-relaxed">
-        {question.text}
-      </h2>
-
+      {/* Question Image */}
       {question.question_media_path && (
-        <div className="mb-6 relative group inline-block">
-          <img
+        <img
+            id="question-image"
             src={`${question.question_media_path}`}
-            alt="Question visual"
-            className="rounded-lg max-h-64 object-cover border border-gray-700 cursor-pointer"
+            alt="Question"
             onClick={() => handleImageClick(`${question.question_media_path}`)}
-          />
-           <div className="absolute top-2 right-2 bg-black/50 p-1 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">
-                <ZoomIn className="text-white w-4 h-4" />
-           </div>
-        </div>
+            style={{ cursor: 'pointer' }}
+        />
       )}
 
-      <div className="space-y-3">
+      {/* Options Grid */}
+      <div className="options-grid">
         {question.options.map((option, index) => (
           <button
             key={index}
             onClick={() => !isAttempted && onSelectOption(index)}
-            disabled={isAttempted}
-            className={`w-full text-left p-4 rounded-lg border transition-all duration-200 flex justify-between items-center ${getOptionStyle(index, option.is_correct_answer)}`}
+            disabled={isAttempted} // Disable all buttons after attempt, or just non-selected ones via CSS?
+            // The CSS: .answered .option-btn:not(.selected) { opacity: 0.7; pointer-events: none; }
+            // So we don't necessarily need 'disabled' attribute if CSS handles it, but good for a11y.
+            // But if we disable, the click won't fire anyway.
+            className={getOptionClassName(index)}
           >
             <span>{option.text}</span>
             {isAttempted && (
-                <span className="text-sm font-mono opacity-80">{option.percentage}</span>
+                <span className="percentage-display">{option.percentage}</span>
             )}
           </button>
         ))}

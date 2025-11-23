@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import ModulePage from './pages/ModulePage';
@@ -8,15 +8,42 @@ import QuizPage from './pages/QuizPage';
  * The main application component.
  *
  * Sets up the React Router and defines the main routes for the application.
- * It also applies the base layout styles (dark mode background, font).
+ * It also handles system theme detection to toggle dark mode.
  *
  * @component
  * @returns {JSX.Element} The rendered application component.
  */
 function App() {
+  useEffect(() => {
+    // Check system preference
+    const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    // Apply initial theme
+    if (darkModeMediaQuery.matches) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+
+    // Listen for changes
+    const handleChange = (e) => {
+      if (e.matches) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+    };
+
+    darkModeMediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      darkModeMediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+
   return (
     <Router>
-      <div className="bg-gray-950 min-h-screen text-gray-100 font-sans">
+      <div style={{ width: '100%' }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/subject/:subjectId" element={<ModulePage />} />

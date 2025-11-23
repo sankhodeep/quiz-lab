@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ZoomIn } from 'lucide-react';
+import React from 'react';
+import { X } from 'lucide-react';
 
 /**
  * A modal overlay to display an image at full size.
