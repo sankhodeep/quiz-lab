@@ -18,12 +18,19 @@ from dotenv import load_dotenv
 from backend.database import SessionLocal, init_db, AttemptLog
 from backend.services.question_source import FileSystemSource
 
-load_dotenv()
+# Explicitly load the .env file from the same directory as main.py
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(dotenv_path):
+    print(f"Loading .env file from: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    print(f".env file not found at: {dotenv_path}")
 
 app = FastAPI()
 
 # Configuration
 ROOT_FOLDER = os.getenv("ROOT_FOLDER_PATH", "./mock_data")
+print(f"Root folder is: {ROOT_FOLDER}")
 ORIGINS = [
     "http://localhost:5173",  # Vite default
     "http://127.0.0.1:5173",
@@ -32,7 +39,7 @@ ORIGINS = [
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
