@@ -4,7 +4,7 @@ import { getQuestions, submitAttempt, updateAttempt } from '../api';
 import QuestionCard from '../components/QuestionCard';
 import ExplanationView from '../components/ExplanationView';
 import StickyFooter from '../components/StickyFooter';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Home } from 'lucide-react';
 
 const QuizPage = () => {
   const { subjectId, moduleId } = useParams();
@@ -16,11 +16,15 @@ const QuizPage = () => {
 
   // Progress State
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [quizCompleted, setQuizCompleted] = useState(false);
 
   // Question State
   const [attempted, setAttempted] = useState(false);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
   const [currentAttemptId, setCurrentAttemptId] = useState(null);
+
+  // History State
+  const [userAnswers, setUserAnswers] = useState({}); // Map: index -> { selectedIndex, isCorrect, attemptId }
 
   // Timers
   const timerRef = useRef(null);
@@ -33,6 +37,7 @@ const QuizPage = () => {
     getQuestions(subjectId, moduleId).then(data => {
       setQuestions(data);
       setLoading(false);
+      // Start timer for first question
       startThinkingTimer();
     }).catch(err => {
       console.error(err);
@@ -47,8 +52,6 @@ const QuizPage = () => {
     startTimeRef.current = Date.now();
     thinkingTimeRef.current = 0;
     explanationTimeRef.current = 0;
-
-    // In a real app we might update UI every second, but for logic we just need start time
   };
 
   const stopThinkingTimer = () => {
@@ -74,24 +77,36 @@ const QuizPage = () => {
     const isCorrect = currentQuestion.options[optionIndex].is_correct_answer;
 
     // Optimistic UI update, send to backend
+    let newAttemptId = null;
     try {
         const result = await submitAttempt({
             mcq_id: currentQuestion.mcq_id,
             subject: subjectId,
             module: moduleId,
-            selected_option: currentQuestion.options[optionIndex].text, // Or label "A", "B"
+            selected_option: currentQuestion.options[optionIndex].text,
             is_correct: isCorrect,
             time_taken_question_sec: thinkingTimeRef.current
         });
+        newAttemptId = result.id;
         setCurrentAttemptId(result.id);
     } catch (error) {
         console.error("Failed to submit attempt", error);
     }
+
+    // Update history
+    setUserAnswers(prev => ({
+        ...prev,
+        [currentIndex]: {
+            selectedIndex: optionIndex,
+            isCorrect: isCorrect,
+            attemptId: newAttemptId
+        }
+    }));
   };
 
   const handleNext = async () => {
+    // If currently attempted, save explanation time
     if (attempted && currentAttemptId) {
-        // Stop explanation timer and update backend
         stopExplanationTimer();
         try {
             await updateAttempt(currentAttemptId, {
@@ -102,77 +117,82 @@ const QuizPage = () => {
         }
     }
 
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      // Reset state for next question
-      setAttempted(false);
-      setSelectedOptionIndex(null);
-      setCurrentAttemptId(null);
-      startThinkingTimer();
-      window.scrollTo(0,0);
+    // If last question, show completion
+    if (currentIndex >= questions.length - 1) {
+        setQuizCompleted(true);
+        return;
     }
+
+    // Move to next
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
+    window.scrollTo(0,0);
   };
 
+  // Handle Previous (History Mode)
   const handlePrevious = () => {
-    // Note: Per requirements, previous is Read-Only History mode.
-    // For MVP simplified flow, we just go back. Ideally we should fetch previous attempt state.
-    // Given the prompt says "Timers: PAUSED/HIDDEN", we should probably handle this state more explicitly.
-    // But for now, let's just allow navigation.
-    // WARNING: Going back and forth might mess up the "Thinking" timer for the current question if not careful.
-    // A simple fix: If we go back, we are in "History Mode".
-    // If we return to the latest unanswered question, we resume "Thinking Mode".
-
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      // Logic for restoring state would be needed here for full feature set.
-      // For this plan, I'll assume we just reset to unattempted or keep it simple.
-      // Wait, user requirements say "History (Read-Only Mode)".
-      // This implies I need to store local history of answers in the frontend session or re-fetch from DB.
-      // For simplicity in this iteration: I will disable Previous if we want to strictly follow the "Stopwatch" logic cleanly,
-      // OR I implement a local state array to track answers.
-    }
-  };
-
-  // Note: To properly support "History Mode" where I can see what I answered,
-  // I need to store my answers in a local state array `userAnswers`.
-  // Let's add that quickly.
-  const [userAnswers, setUserAnswers] = useState({}); // Map: index -> { selectedIndex, isCorrect, attemptId }
-
-  const handleSelectOptionWithHistory = async (optionIndex) => {
-      await handleSelectOption(optionIndex);
-      setUserAnswers(prev => ({
-          ...prev,
-          [currentIndex]: {
-              selectedIndex: optionIndex,
-              attemptId: null // We'll update this when the API returns if needed, but strictly we don't need it for history view
-          }
-      }));
-  };
-
-  // Re-render check
-  const isHistoryMode = userAnswers[currentIndex] !== undefined;
-
-  // If we navigate to an already answered question
-  useEffect(() => {
-      if (userAnswers[currentIndex]) {
-          setAttempted(true);
-          setSelectedOptionIndex(userAnswers[currentIndex].selectedIndex);
-          // Stop timers effectively
-      } else {
-         // It's a new question (or we just arrived)
-         if (!attempted) {
-             // Ensure timer is running for new question
-             // (startThinkingTimer is called in the other useEffect when questions load,
-             // but we also need it when navigating Next to a new question)
-         }
+      if (currentIndex > 0) {
+          setCurrentIndex(prev => prev - 1);
+          window.scrollTo(0,0);
       }
-  }, [currentIndex, userAnswers]);
+  };
+
+  // Effect to restore state when navigating between questions
+  useEffect(() => {
+      const historyData = userAnswers[currentIndex];
+
+      if (historyData) {
+          // History Mode (Read Only)
+          setAttempted(true);
+          setSelectedOptionIndex(historyData.selectedIndex);
+          setCurrentAttemptId(historyData.attemptId);
+          // Don't start timers
+      } else {
+          // New Question (Active Mode)
+          setAttempted(false);
+          setSelectedOptionIndex(null);
+          setCurrentAttemptId(null);
+          startThinkingTimer();
+      }
+  }, [currentIndex, userAnswers, questions]); // questions dependency ensures it runs after load
+
 
   if (loading) return <div className="text-white p-8">Loading Quiz...</div>;
-
   if (!questions || questions.length === 0) return <div className="text-white p-8">No questions available.</div>;
 
+  // Quiz Summary View
+  if (quizCompleted) {
+      const total = questions.length;
+      const correctCount = Object.values(userAnswers).filter(a => a.isCorrect).length;
+      const scorePercentage = Math.round((correctCount / total) * 100);
+
+      return (
+          <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 max-w-md w-full text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold mb-2">Quiz Completed!</h2>
+                  <p className="text-gray-400 mb-6">You have completed all questions in this module.</p>
+
+                  <div className="bg-gray-800 rounded-xl p-6 mb-8">
+                      <div className="text-4xl font-bold mb-1">{correctCount} / {total}</div>
+                      <div className="text-sm text-gray-500">Correct Answers</div>
+                      <div className="mt-2 text-green-400 font-mono">{scorePercentage}% Score</div>
+                  </div>
+
+                  <button
+                    onClick={() => navigate(`/modules/${subjectId}`)}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Home size={20} />
+                      Back to Modules
+                  </button>
+              </div>
+          </div>
+      );
+  }
+
   const currentQuestion = questions[currentIndex];
+  const isHistoryMode = userAnswers[currentIndex] !== undefined;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white pb-24">
@@ -182,17 +202,18 @@ const QuizPage = () => {
             <ArrowLeft />
          </button>
          <div className="font-mono text-sm text-gray-500">
-            Timer: {attempted ? "Reviewing" : "Thinking"}
+            {isHistoryMode ? "History (Read Only)" : (attempted ? "Timer: Reviewing" : "Timer: Thinking")}
          </div>
       </div>
 
       <div className="max-w-4xl mx-auto p-4 md:p-8">
         <QuestionCard
             question={currentQuestion}
-            selectedOption={isHistoryMode ? userAnswers[currentIndex].selectedIndex : selectedOptionIndex}
-            onSelectOption={handleSelectOptionWithHistory}
+            selectedOption={selectedOptionIndex}
+            onSelectOption={handleSelectOption}
             isAttempted={attempted}
             correctAnswerIndex={currentQuestion.options.findIndex(o => o.is_correct_answer)}
+            isReadOnly={isHistoryMode}
         />
 
         {attempted && (
@@ -200,19 +221,20 @@ const QuizPage = () => {
                 explanationElements={currentQuestion.explanation_elements}
                 references={currentQuestion.references}
                 stats={{
-                    time_taken_question_sec: thinkingTimeRef.current
+                    time_taken_question_sec: isHistoryMode ? 0 : thinkingTimeRef.current // Don't show confusing 0s in history or store it
                 }}
             />
         )}
       </div>
 
       <StickyFooter
-        onPrevious={() => setCurrentIndex(c => Math.max(0, c - 1))}
+        onPrevious={handlePrevious}
         onNext={handleNext}
         disablePrevious={currentIndex === 0}
-        disableNext={!attempted && currentIndex < questions.length}
+        disableNext={!attempted}
         currentIndex={currentIndex}
         totalCount={questions.length}
+        isLastQuestion={currentIndex === questions.length - 1}
       />
     </div>
   );
