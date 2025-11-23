@@ -49,10 +49,10 @@ const QuestionCard = ({ question, selectedOption, onSelectOption, isAttempted, c
       {question.question_media_path && (
         <div className="mb-6 relative group inline-block">
           <img
-            src={`http://localhost:8000${question.question_media_path}`}
+            src={`${question.question_media_path}`}
             alt="Question visual"
             className="rounded-lg max-h-64 object-cover border border-gray-700 cursor-pointer"
-            onClick={() => handleImageClick(`http://localhost:8000${question.question_media_path}`)}
+            onClick={() => handleImageClick(`${question.question_media_path}`)}
           />
            <div className="absolute top-2 right-2 bg-black/50 p-1 rounded-full opacity-0 group-hover:opacity-100 transition pointer-events-none">
                 <ZoomIn className="text-white w-4 h-4" />
