@@ -2,10 +2,29 @@ import React, { useState } from 'react';
 import { ZoomIn, BookOpen } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 
+/**
+ * Component to display the explanation for a question after it has been answered.
+ * Supports mixed text and image content, and displays references and timing stats.
+ *
+ * @component
+ * @param {Object} props - Component props.
+ * @param {Array<Object>} props.explanationElements - List of content blocks (text or image) for the explanation.
+ * @param {string} props.explanationElements[].type - Type of element ('text' or 'image').
+ * @param {string} [props.explanationElements[].content] - Text content if type is 'text'.
+ * @param {string} [props.explanationElements[].path] - Image path if type is 'image'.
+ * @param {Array<string>} [props.references] - List of reference strings.
+ * @param {Object} props.stats - Statistics about the attempt.
+ * @param {number} props.stats.time_taken_question_sec - Time taken to answer the question.
+ * @returns {JSX.Element} The rendered explanation view.
+ */
 const ExplanationView = ({ explanationElements, references, stats }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState('');
 
+  /**
+   * Opens the lightbox with the selected image.
+   * @param {string} src - The URL of the image to display.
+   */
   const handleImageClick = (src) => {
     setLightboxSrc(src);
     setLightboxOpen(true);

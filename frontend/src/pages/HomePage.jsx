@@ -3,6 +3,15 @@ import { Link } from 'react-router-dom';
 import { getSubjects } from '../api';
 import { Book, ChevronRight } from 'lucide-react';
 
+/**
+ * The home page component.
+ *
+ * Displays a list of available subjects fetched from the API.
+ * Users can click on a subject to view its modules.
+ *
+ * @component
+ * @returns {JSX.Element} The rendered home page.
+ */
 const HomePage = () => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);

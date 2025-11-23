@@ -1,6 +1,20 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+/**
+ * A fixed-position footer for navigation between questions.
+ *
+ * @component
+ * @param {Object} props - Component props.
+ * @param {function} props.onPrevious - Callback to go to the previous question.
+ * @param {function} props.onNext - Callback to go to the next question.
+ * @param {boolean} props.disablePrevious - Whether the previous button is disabled.
+ * @param {boolean} props.disableNext - Whether the next button is disabled.
+ * @param {number} props.currentIndex - The zero-based index of the current question.
+ * @param {number} props.totalCount - The total number of questions.
+ * @param {string} [props.mode] - Current mode identifier (not currently used in logic).
+ * @returns {JSX.Element} The rendered footer.
+ */
 const StickyFooter = ({
   onPrevious,
   onNext,
