@@ -1,26 +1,88 @@
+"""
+Question Source Service.
+
+This module defines the interface and implementation for retrieving quiz questions
+and organization structure (subjects, modules) from a storage backend.
+Currently, it supports a file-system-based approach.
+"""
+
 from abc import ABC, abstractmethod
 import os
 import json
 from typing import List, Optional, Dict, Any
 
 class QuestionSource(ABC):
+    """
+    Abstract base class defining the interface for data retrieval.
+    """
+
     @abstractmethod
     def get_subjects(self) -> List[str]:
+        """
+        Retrieves a list of available subjects.
+
+        Returns:
+            List[str]: A list of subject names.
+        """
         pass
 
     @abstractmethod
     def get_modules(self, subject: str) -> List[str]:
+        """
+        Retrieves a list of modules for a specific subject.
+
+        Args:
+            subject (str): The name of the subject.
+
+        Returns:
+            List[str]: A list of module names associated with the subject.
+        """
         pass
 
     @abstractmethod
     def get_questions(self, subject: str, module: str) -> List[Dict[str, Any]]:
+        """
+        Retrieves the list of questions for a specific module.
+
+        Args:
+            subject (str): The subject name.
+            module (str): The module name.
+
+        Returns:
+            List[Dict[str, Any]]: A list of question dictionaries.
+        """
         pass
 
 class FileSystemSource(QuestionSource):
+    """
+    Implementation of QuestionSource that reads from a local directory structure.
+
+    The expected structure is:
+    Root/
+      Subject/
+        Module/
+          questions.json
+          media/
+    """
+
     def __init__(self, root_path: str):
+        """
+        Initializes the FileSystemSource.
+
+        Args:
+            root_path (str): The absolute or relative path to the root directory
+                             containing the question bank.
+        """
         self.root_path = root_path
 
     def get_subjects(self) -> List[str]:
+        """
+        Scans the root directory for subject folders.
+
+        Returns:
+            List[str]: A list of directory names in the root folder.
+                       Returns an empty list if the root path does not exist.
+        """
         if not os.path.exists(self.root_path):
             return []
         # List directories in root
@@ -30,6 +92,16 @@ class FileSystemSource(QuestionSource):
         ]
 
     def get_modules(self, subject: str) -> List[str]:
+        """
+        Scans the subject directory for module folders.
+
+        Args:
+            subject (str): The name of the subject directory.
+
+        Returns:
+            List[str]: A list of directory names within the subject folder.
+                       Returns an empty list if the subject directory does not exist.
+        """
         subject_path = os.path.join(self.root_path, subject)
         if not os.path.exists(subject_path):
             return []
@@ -40,6 +112,20 @@ class FileSystemSource(QuestionSource):
         ]
 
     def get_questions(self, subject: str, module: str) -> List[Dict[str, Any]]:
+        """
+        Reads and parses the 'questions.json' file within a module directory.
+
+        This method also normalizes image paths found in the JSON data to be
+        accessible via the web server.
+
+        Args:
+            subject (str): The subject name.
+            module (str): The module name.
+
+        Returns:
+            List[Dict[str, Any]]: A list of question objects. Returns an empty list
+                                  if the file is missing or invalid.
+        """
         module_path = os.path.join(self.root_path, subject, module)
         json_path = os.path.join(module_path, "questions.json")
 
@@ -71,6 +157,20 @@ class FileSystemSource(QuestionSource):
             return []
 
     def _transform_media_path(self, raw_path: str, subject: str, module: str) -> str:
+        """
+        Transforms a local file path into a web-accessible URL path.
+
+        Converts Windows-style backslashes to forward slashes and prepends
+        the static library prefix.
+
+        Args:
+            raw_path (str): The raw path from the JSON (e.g., "media\\image.jpg").
+            subject (str): The subject name.
+            module (str): The module name.
+
+        Returns:
+            str: A URL path string (e.g., "/static/library/Subject/Module/media/image.jpg").
+        """
         # Convert Windows backslashes to forward slashes
         clean_path = raw_path.replace("\\", "/")
         # Ideally, we return a relative URL that the frontend can use.
