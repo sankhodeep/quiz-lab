@@ -6,6 +6,19 @@ import ExplanationView from '../components/ExplanationView';
 import StickyFooter from '../components/StickyFooter';
 import { ArrowLeft, CheckCircle, Home } from 'lucide-react';
 
+/**
+ * The main quiz interface component.
+ *
+ * Manages the state of the quiz session, including:
+ * - Fetching questions.
+ * - Tracking current question index.
+ * - Handling user answers and submission.
+ * - Managing timers for thinking and explanation phases.
+ * - Displaying quiz results upon completion.
+ *
+ * @component
+ * @returns {JSX.Element} The rendered quiz page.
+ */
 const QuizPage = () => {
   const { subjectId, moduleId } = useParams();
   const navigate = useNavigate();
@@ -47,25 +60,39 @@ const QuizPage = () => {
     return () => clearInterval(timerRef.current);
   }, [subjectId, moduleId]);
 
-  // Timer Logic
+  /**
+   * Starts the timer for the "thinking" phase (before answering).
+   */
   const startThinkingTimer = () => {
     startTimeRef.current = Date.now();
     thinkingTimeRef.current = 0;
     explanationTimeRef.current = 0;
   };
 
+  /**
+   * Stops the thinking timer and records the elapsed time.
+   * Resets the start time to begin tracking explanation time.
+   */
   const stopThinkingTimer = () => {
     const now = Date.now();
     thinkingTimeRef.current = (now - startTimeRef.current) / 1000;
     startTimeRef.current = now; // Reset start time for explanation timer
   };
 
+  /**
+   * Stops the explanation timer and records the elapsed time.
+   */
   const stopExplanationTimer = () => {
     const now = Date.now();
     explanationTimeRef.current = (now - startTimeRef.current) / 1000;
   };
 
-  // Actions
+  /**
+   * Handles the selection of an answer option.
+   * Stops timers, records the attempt in the backend, and updates local state.
+   *
+   * @param {number} optionIndex - The index of the selected option.
+   */
   const handleSelectOption = async (optionIndex) => {
     if (attempted) return;
 
@@ -104,6 +131,10 @@ const QuizPage = () => {
     }));
   };
 
+  /**
+   * Navigates to the next question.
+   * Updates explanation timing for the current question before moving on.
+   */
   const handleNext = async () => {
     // If currently attempted, save explanation time
     if (attempted && currentAttemptId) {
@@ -129,7 +160,9 @@ const QuizPage = () => {
     window.scrollTo(0,0);
   };
 
-  // Handle Previous (History Mode)
+  /**
+   * Navigates to the previous question (history mode).
+   */
   const handlePrevious = () => {
       if (currentIndex > 0) {
           setCurrentIndex(prev => prev - 1);

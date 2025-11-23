@@ -3,6 +3,15 @@ import { Link, useParams } from 'react-router-dom';
 import { getModules } from '../api';
 import { Folder, ChevronRight, ArrowLeft } from 'lucide-react';
 
+/**
+ * The module selection page.
+ *
+ * Displays a list of modules for a specific subject (retrieved from the URL parameter).
+ * Users can click a module to start the quiz for that module.
+ *
+ * @component
+ * @returns {JSX.Element} The rendered module page.
+ */
 const ModulePage = () => {
   const { subjectId } = useParams();
   const [modules, setModules] = useState([]);

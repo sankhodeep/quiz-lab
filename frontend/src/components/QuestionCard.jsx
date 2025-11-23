@@ -2,15 +2,48 @@ import React, { useState } from 'react';
 import { ZoomIn } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 
+/**
+ * Displays the main question content and options.
+ *
+ * Handles both the active attempting state (where users can select an option)
+ * and the review state (showing correct/incorrect answers).
+ *
+ * @component
+ * @param {Object} props - Component props.
+ * @param {Object} props.question - The question object.
+ * @param {string} props.question.mcq_id - Unique question ID.
+ * @param {string} props.question.text - The question text.
+ * @param {Array<string>} [props.question.labels] - Optional labels/tags for the question.
+ * @param {string} [props.question.question_media_path] - Optional path to a question image.
+ * @param {Array<Object>} props.question.options - List of answer options.
+ * @param {string} props.question.options[].text - Option text.
+ * @param {string} [props.question.options[].percentage] - Optional stat percentage.
+ * @param {number|null} props.selectedOption - The index of the currently selected option.
+ * @param {function} props.onSelectOption - Callback when an option is selected.
+ * @param {boolean} props.isAttempted - Whether the question has been submitted.
+ * @param {number} props.correctAnswerIndex - The index of the correct option.
+ * @returns {JSX.Element} The rendered question card.
+ */
 const QuestionCard = ({ question, selectedOption, onSelectOption, isAttempted, correctAnswerIndex }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState('');
 
+  /**
+   * Opens the lightbox with the provided image source.
+   * @param {string} src - Image URL.
+   */
   const handleImageClick = (src) => {
     setLightboxSrc(src);
     setLightboxOpen(true);
   };
 
+  /**
+   * Determines the CSS classes for an option based on its state (selected, correct, wrong).
+   *
+   * @param {number} index - Index of the option.
+   * @param {boolean} isCorrect - Whether this option is the correct one (not used logic-wise here but passed).
+   * @returns {string} CSS class string.
+   */
   const getOptionStyle = (index, isCorrect) => {
     if (!isAttempted) {
       // Active Mode: Just show selection state
