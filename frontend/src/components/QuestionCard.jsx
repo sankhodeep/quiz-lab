@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 /**
  * Displays the main question content and options using the provided CSS structure.
@@ -62,7 +64,7 @@ const QuestionCard = ({ question, selectedOption, onSelectOption, isAttempted, c
 
       {/* Question Text */}
       <div id="question-text">
-        {question.text}
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{question.text}</ReactMarkdown>
       </div>
 
       {/* Question Image */}
