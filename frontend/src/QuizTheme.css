@@ -47,7 +47,36 @@ body.quiz-mode #root {
     font-size: 1.2em;
     margin-bottom: 10px;
     line-height: 1.6;
+    white-space: pre-wrap; /* This is the fix */
 }
+
+/* Add styles for tables inside the question text */
+#question-text table {
+    width: auto; /* Or 100% if you prefer */
+    border-collapse: collapse;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    font-size: 0.9em; /* Make table text slightly smaller */
+}
+
+#question-text th, #question-text td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#question-text th {
+    background-color: #f2f2f2;
+}
+
+body.dark-mode #question-text th, body.dark-mode #question-text td {
+    border-color: #444;
+}
+
+body.dark-mode #question-text th {
+    background-color: #333;
+}
+
 
 #question-image {
     max-width: 100%;
