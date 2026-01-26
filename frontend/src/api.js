@@ -43,6 +43,38 @@ export const getQuestions = async (subject, moduleName) => {
 };
 
 /**
+ * Fetches the attempt history for a specific module.
+ */
+export const getAttemptHistory = async (subject, moduleName) => {
+  const response = await api.get(`/history/${subject}/${moduleName}`);
+  return response.data;
+};
+
+/**
+ * Starts a new quiz attempt.
+ */
+export const createQuizAttempt = async (subject, moduleName) => {
+  const response = await api.post('/attempts', { subject, module: moduleName });
+  return response.data;
+};
+
+/**
+ * Fetches the details of a single quiz attempt.
+ */
+export const getQuizAttempt = async (attemptId) => {
+  const response = await api.get(`/attempts/${attemptId}`);
+  return response.data;
+};
+
+/**
+ * Marks a quiz attempt as complete.
+ */
+export const completeQuizAttempt = async (attemptId, skippedIds) => {
+  const response = await api.post(`/attempts/${attemptId}/complete`, { skipped_ids: skippedIds });
+  return response.data;
+};
+
+/**
  * Submits a user's attempt at a question.
  *
  * @param {Object} attemptData - The attempt data.
@@ -52,6 +84,7 @@ export const getQuestions = async (subject, moduleName) => {
  * @param {string} attemptData.selected_option - The option selected by the user.
  * @param {boolean} attemptData.is_correct - Whether the answer is correct.
  * @param {number} attemptData.time_taken_question_sec - Time taken to answer in seconds.
+ * @param {number} [attemptData.quiz_attempt_id] - Optional ID of the parent quiz attempt.
  * @returns {Promise<Object>} A promise that resolves to the response data (including attempt ID).
  */
 export const submitAttempt = async (attemptData) => {

@@ -43,7 +43,7 @@ const ModulePage = () => {
         {modules.map(module => (
           <Link
             key={module}
-            to={`/quiz/${subjectId}/${module}`}
+            to={`/history/${subjectId}/${module}`}
             className="block bg-gray-900 border border-gray-800 p-6 rounded-xl hover:border-blue-500 hover:bg-gray-800 transition-all group"
           >
             <div className="flex justify-between items-center">

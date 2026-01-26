@@ -11,11 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
+from datetime import datetime
+from sqlalchemy.orm import joinedload
 import os
 import traceback
 from dotenv import load_dotenv
 
-from backend.database import SessionLocal, init_db, AttemptLog
+from backend.database import SessionLocal, init_db, AttemptLog, QuizAttempt
 from backend.services.question_source import FileSystemSource
 
 # Explicitly load the .env file from the same directory as main.py
@@ -91,6 +93,7 @@ class AttemptCreate(BaseModel):
     selected_option: str
     is_correct: bool
     time_taken_question_sec: float
+    quiz_attempt_id: Optional[int] = None
 
 class AttemptUpdate(BaseModel):
     """
@@ -100,6 +103,43 @@ class AttemptUpdate(BaseModel):
         time_taken_explanation_sec (float): Time spent reading the explanation.
     """
     time_taken_explanation_sec: float
+
+class QuizComplete(BaseModel):
+    """
+    Schema for finalizing a quiz attempt.
+    """
+    skipped_ids: List[str]
+
+class QuizAttemptCreate(BaseModel):
+    subject: str
+    module: str
+
+class AttemptLogResponse(BaseModel):
+    mcq_id: str
+    selected_option: str
+    is_correct: bool
+    time_taken_question_sec: float
+
+    class Config:
+        orm_mode = True
+
+class QuizAttemptResponse(BaseModel):
+    id: int
+    subject: str
+    module: str
+    status: str
+    score: int
+    percentage: float
+    correct_count: int
+    incorrect_count: int
+    skipped_count: int
+    total_questions: int
+    start_time: datetime
+    end_time: Optional[datetime]
+    logs: List[AttemptLogResponse]
+
+    class Config:
+        orm_mode = True
 
 # Routes
 
@@ -151,31 +191,109 @@ def get_questions(subject: str, module: str):
         raise HTTPException(status_code=404, detail="Questions not found or empty")
     return questions
 
+@app.get("/history/{subject}/{module}", response_model=List[QuizAttemptResponse])
+def get_attempt_history(subject: str, module: str, db: Session = Depends(get_db)):
+    """
+    Fetch all quiz attempts for a specific module.
+    """
+    history = db.query(QuizAttempt).filter(
+        QuizAttempt.subject == subject,
+        QuizAttempt.module == module
+    ).order_by(QuizAttempt.start_time.desc()).all()
+    return history
+
+@app.post("/attempts", response_model=QuizAttemptResponse)
+def create_quiz_attempt(attempt_data: QuizAttemptCreate, db: Session = Depends(get_db)):
+    """
+    Start a new quiz attempt.
+    """
+    questions = question_source.get_questions(attempt_data.subject, attempt_data.module)
+    if not questions:
+        raise HTTPException(status_code=404, detail="Module questions not found.")
+
+    new_attempt = QuizAttempt(
+        subject=attempt_data.subject,
+        module=attempt_data.module,
+        total_questions=len(questions)
+    )
+    db.add(new_attempt)
+    db.commit()
+    db.refresh(new_attempt)
+    return new_attempt
+
+@app.get("/attempts/{attempt_id}", response_model=QuizAttemptResponse)
+@app.get("/attempts/{attempt_id}", response_model=QuizAttemptResponse)
+def get_quiz_attempt(attempt_id: int, db: Session = Depends(get_db)):
+    """
+    Get a specific quiz attempt by its ID, including all its answer logs.
+    """
+    attempt = db.query(QuizAttempt).options(joinedload(QuizAttempt.logs)).filter(QuizAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Quiz attempt not found.")
+    return attempt
+
+
+@app.post("/attempts/{attempt_id}/complete", response_model=QuizAttemptResponse)
+def complete_quiz_attempt(attempt_id: int, completion_data: QuizComplete, db: Session = Depends(get_db)):
+    """
+    Mark a quiz attempt as complete and calculate final stats.
+    """
+    quiz_attempt = db.query(QuizAttempt).filter(QuizAttempt.id == attempt_id).first()
+    if not quiz_attempt:
+        raise HTTPException(status_code=404, detail="Quiz attempt not found.")
+    
+    if quiz_attempt.status == 'completed':
+        # Allow re-calculating if needed, but for now, let's prevent changes.
+        return quiz_attempt
+
+    quiz_attempt.status = 'completed'
+    quiz_attempt.end_time = datetime.utcnow()
+    quiz_attempt.skipped_count = len(completion_data.skipped_ids)
+    
+    # Final percentage calculation
+    if quiz_attempt.total_questions > 0:
+        quiz_attempt.percentage = (quiz_attempt.correct_count / quiz_attempt.total_questions) * 100
+    else:
+        quiz_attempt.percentage = 0.0
+
+    db.commit()
+    db.refresh(quiz_attempt)
+    return quiz_attempt
+
 @app.post("/submit_attempt")
 def submit_attempt(attempt: AttemptCreate, db: Session = Depends(get_db)):
     """
     Record a user's attempt at answering a question.
-
-    Args:
-        attempt (AttemptCreate): The attempt data.
-        db (Session): Database session.
-
-    Returns:
-        dict: A dictionary containing the new attempt ID and status.
-
-    Raises:
-        HTTPException: 500 if an error occurs during database commit.
+    Also updates the parent QuizAttempt stats if a quiz_attempt_id is provided.
     """
     try:
+        # Create the individual log
         db_attempt = AttemptLog(
             mcq_id=attempt.mcq_id,
             subject=attempt.subject,
             module=attempt.module,
             selected_option=attempt.selected_option,
             is_correct=attempt.is_correct,
-            time_taken_question_sec=attempt.time_taken_question_sec
+            time_taken_question_sec=attempt.time_taken_question_sec,
+            quiz_attempt_id=attempt.quiz_attempt_id
         )
         db.add(db_attempt)
+
+        # If part of a quiz, update the aggregate stats
+        if attempt.quiz_attempt_id:
+            quiz_attempt = db.query(QuizAttempt).filter(QuizAttempt.id == attempt.quiz_attempt_id).first()
+            if quiz_attempt:
+                if attempt.is_correct:
+                    quiz_attempt.correct_count += 1
+                    quiz_attempt.score += 4
+                else:
+                    quiz_attempt.incorrect_count += 1
+                    quiz_attempt.score -= 1
+                
+                # Live percentage update
+                if quiz_attempt.total_questions > 0:
+                    quiz_attempt.percentage = (quiz_attempt.correct_count / quiz_attempt.total_questions) * 100
+
         db.commit()
         db.refresh(db_attempt)
         return {"id": db_attempt.id, "status": "recorded"}

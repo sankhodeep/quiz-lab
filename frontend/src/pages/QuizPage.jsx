@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getQuestions, submitAttempt, updateAttempt } from '../api';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { getQuestions, submitAttempt, updateAttempt, completeQuizAttempt } from '../api';
 import QuestionCard from '../components/QuestionCard';
 import ExplanationView from '../components/ExplanationView';
 import { CheckCircle, Home } from 'lucide-react';
@@ -12,6 +12,9 @@ import { CheckCircle, Home } from 'lucide-react';
 const QuizPage = () => {
   const { subjectId, moduleId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const attemptId = queryParams.get('attemptId');
 
   // Data State
   const [questions, setQuestions] = useState([]);
@@ -123,7 +126,8 @@ const QuizPage = () => {
             module: moduleId,
             selected_option: currentQuestion.options[optionIndex].text,
             is_correct: isCorrect,
-            time_taken_question_sec: timeTaken
+            time_taken_question_sec: timeTaken,
+            quiz_attempt_id: attemptId
         });
         newAttemptId = result.id;
         setCurrentAttemptId(result.id);
@@ -182,6 +186,20 @@ const QuizPage = () => {
       if (currentIndex > 0) {
           navigateToQuestion(currentIndex - 1);
       }
+  };
+
+  const handleFinish = async () => {
+    const attemptedIndexes = Object.keys(userAnswers).map(Number);
+    const allIndexes = Array.from({ length: questions.length }, (_, i) => i);
+    const skippedIndexes = allIndexes.filter(i => !attemptedIndexes.includes(i));
+    const skippedMcqIds = skippedIndexes.map(i => questions[i].mcq_id);
+    
+    try {
+        await completeQuizAttempt(attemptId, skippedMcqIds);
+        setQuizCompleted(true);
+    } catch (error) {
+        console.error("Failed to finalize quiz:", error);
+    }
   };
 
   if (loading) return <div style={{ padding: '20px' }}>Loading Quiz...</div>;
@@ -283,6 +301,13 @@ const QuizPage = () => {
                     style={{ opacity: !attempted ? 0.5 : 1, cursor: !attempted ? 'not-allowed' : 'pointer' }}
                 >
                     Next
+                </button>
+                <button
+                    id="finish-btn"
+                    onClick={handleFinish}
+                    style={{ backgroundColor: '#28a745', color: 'white' }}
+                >
+                    Finish
                 </button>
             </div>
         </div>

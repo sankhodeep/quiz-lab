@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import ModulePage from './pages/ModulePage';
 import QuizPage from './pages/QuizPage';
+import AttemptHistoryPage from './pages/AttemptHistoryPage';
+import QuizReplayPage from './pages/QuizReplayPage';
 
 /**
  * The main application component.
@@ -47,7 +49,9 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/subject/:subjectId" element={<ModulePage />} />
+          <Route path="/history/:subjectId/:moduleId" element={<AttemptHistoryPage />} />
           <Route path="/quiz/:subjectId/:moduleId" element={<QuizPage />} />
+          <Route path="/replay/:subjectId/:moduleId/:attemptId" element={<QuizReplayPage />} />
         </Routes>
       </div>
     </Router>
