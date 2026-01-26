@@ -107,6 +107,66 @@ const QuizPage = () => {
     return () => clearInterval(interval);
   }, [loading, quizCompleted, userAnswers, currentIndex, attempted]);
 
+  const navigateToQuestion = (index) => {
+    const historyData = userAnswers[index];
+    if (historyData) {
+        setAttempted(true);
+        setSelectedOptionIndex(historyData.selectedIndex);
+        setCurrentAttemptId(historyData.attemptId);
+    } else {
+        setAttempted(false);
+        setSelectedOptionIndex(null);
+        setCurrentAttemptId(null);
+        startThinkingTimer();
+    }
+    setCurrentIndex(index);
+    window.scrollTo(0,0);
+  };
+
+  const handleNext = async () => {
+    if (attempted && currentAttemptId) {
+        stopExplanationTimer();
+        try {
+            await updateAttempt(currentAttemptId, {
+                time_taken_explanation_sec: explanationTimeRef.current
+            });
+        } catch (error) {
+            console.error("Failed to update explanation time", error);
+        }
+    }
+    
+    if (currentIndex >= questions.length - 1) {
+        setQuizCompleted(true);
+        return;
+    }
+
+    navigateToQuestion(currentIndex + 1);
+  };
+
+  const handlePrevious = () => {
+      if (currentIndex > 0) {
+          navigateToQuestion(currentIndex - 1);
+      }
+  };
+
+  // Keyboard shortcut for next button
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === '1') {
+        const nextButton = document.getElementById('next-btn');
+        if (nextButton && !nextButton.disabled) {
+          handleNext();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentIndex, questions.length, attempted, currentAttemptId]);
+
   const handleSelectOption = async (optionIndex) => {
     if (attempted) return;
 
@@ -145,49 +205,6 @@ const QuizPage = () => {
             timeTaken: timeTaken
         }
     }));
-  };
-
-  const navigateToQuestion = (index) => {
-      const historyData = userAnswers[index];
-      if (historyData) {
-          setAttempted(true);
-          setSelectedOptionIndex(historyData.selectedIndex);
-          setCurrentAttemptId(historyData.attemptId);
-      } else {
-          setAttempted(false);
-          setSelectedOptionIndex(null);
-          setCurrentAttemptId(null);
-          startThinkingTimer();
-      }
-      setCurrentIndex(index);
-      window.scrollTo(0,0);
-  };
-
-  const handleNext = async () => {
-    if (attempted && currentAttemptId) {
-        stopExplanationTimer();
-        try {
-            await updateAttempt(currentAttemptId, {
-                time_taken_explanation_sec: explanationTimeRef.current
-            });
-        } catch (error) {
-            console.error("Failed to update explanation time", error);
-        }
-    }
-    
-
-    if (currentIndex >= questions.length - 1) {
-        setQuizCompleted(true);
-        return;
-    }
-
-    navigateToQuestion(currentIndex + 1);
-  };
-
-  const handlePrevious = () => {
-      if (currentIndex > 0) {
-          navigateToQuestion(currentIndex - 1);
-      }
   };
 
   const handleFinish = async () => {

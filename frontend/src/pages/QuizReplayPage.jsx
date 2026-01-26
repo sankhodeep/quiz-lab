@@ -15,6 +15,18 @@ const QuizReplayPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
   useEffect(() => {
     document.body.classList.add('quiz-mode');
     return () => {
@@ -50,19 +62,25 @@ const QuizReplayPage = () => {
     loadReplayData();
   }, [subjectId, moduleId, attemptId, location.search]);
   
-  
+  // Keyboard shortcut for next button
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === '1') {
+        // Find the next button and check if it's not disabled
+        const nextButton = document.getElementById('next-btn');
+        if (nextButton && !nextButton.disabled) {
+          handleNext();
+        }
+      }
+    };
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
+    window.addEventListener('keydown', handleKeyDown);
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+    // Cleanup the event listener on component unmount
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentIndex, questions.length]);
 
   if (loading) return <div style={{ padding: '20px' }}>Loading Replay...</div>;
   if (!questions.length || !attemptDetails) return <div style={{ padding: '20px' }}>Could not load replay data.</div>;
