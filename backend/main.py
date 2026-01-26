@@ -121,7 +121,7 @@ class AttemptLogResponse(BaseModel):
     time_taken_question_sec: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class QuizAttemptResponse(BaseModel):
     id: int
@@ -139,7 +139,24 @@ class QuizAttemptResponse(BaseModel):
     logs: List[AttemptLogResponse]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class QuestionStats(BaseModel):
+    mcq_id: str
+    time_taken_question_sec: float
+    is_correct: bool
+    labels: List[str]
+
+class LabelPerformance(BaseModel):
+    label: str
+    correct: int
+    total: int
+    average_time: float
+
+class StatsResponse(BaseModel):
+    attempt_summary: QuizAttemptResponse
+    questions_stats: List[QuestionStats]
+    label_performance: List[LabelPerformance]
 
 # Routes
 
@@ -231,6 +248,61 @@ def get_quiz_attempt(attempt_id: int, db: Session = Depends(get_db)):
     if not attempt:
         raise HTTPException(status_code=404, detail="Quiz attempt not found.")
     return attempt
+
+
+@app.get("/stats/{attempt_id}", response_model=StatsResponse)
+def get_attempt_stats(attempt_id: int, db: Session = Depends(get_db)):
+    """
+    Get detailed performance statistics for a specific quiz attempt.
+    """
+    attempt = db.query(QuizAttempt).options(joinedload(QuizAttempt.logs)).filter(QuizAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Quiz attempt not found.")
+
+    # Fetch all questions for the module to get their labels
+    all_questions = question_source.get_questions(attempt.subject, attempt.module)
+    questions_map = {q['mcq_id']: q for q in all_questions}
+
+    questions_stats = []
+    label_stats = {}
+
+    for log in attempt.logs:
+        question_details = questions_map.get(log.mcq_id)
+        labels = question_details.get('labels', []) if question_details else []
+        
+        # Aggregate stats per question
+        q_stat = QuestionStats(
+            mcq_id=log.mcq_id,
+            time_taken_question_sec=log.time_taken_question_sec,
+            is_correct=log.is_correct,
+            labels=labels
+        )
+        questions_stats.append(q_stat)
+
+        # Aggregate stats per label
+        for label in labels:
+            if label not in label_stats:
+                label_stats[label] = {'correct': 0, 'total': 0, 'total_time': 0.0}
+            
+            label_stats[label]['total'] += 1
+            label_stats[label]['total_time'] += log.time_taken_question_sec
+            if log.is_correct:
+                label_stats[label]['correct'] += 1
+
+    label_performance = [
+        LabelPerformance(
+            label=label,
+            correct=stats['correct'],
+            total=stats['total'],
+            average_time=stats['total_time'] / stats['total'] if stats['total'] > 0 else 0
+        ) for label, stats in label_stats.items()
+    ]
+
+    return StatsResponse(
+        attempt_summary=attempt,
+        questions_stats=questions_stats,
+        label_performance=label_performance
+    )
 
 
 @app.post("/attempts/{attempt_id}/complete", response_model=QuizAttemptResponse)

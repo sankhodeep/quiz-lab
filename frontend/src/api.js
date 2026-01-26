@@ -104,3 +104,12 @@ export const updateAttempt = async (attemptId, updateData) => {
   const response = await api.patch(`/attempt/${attemptId}`, updateData);
   return response.data;
 };
+
+
+/**
+ * Fetches the detailed performance stats for a specific quiz attempt.
+ */
+export const getAttemptStats = async (attemptId) => {
+  const response = await api.get(`/stats/${attemptId}`);
+  return response.data;
+};

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getQuestions, getQuizAttempt } from '../api';
 import QuestionCard from '../components/QuestionCard';
 import ExplanationView from '../components/ExplanationView';
@@ -8,6 +8,7 @@ import { Home } from 'lucide-react';
 const QuizReplayPage = () => {
   const { subjectId, moduleId, attemptId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [questions, setQuestions] = useState([]);
   const [attemptDetails, setAttemptDetails] = useState(null);
@@ -29,6 +30,17 @@ const QuizReplayPage = () => {
         
         setQuestions(questionsData);
         setAttemptDetails(attemptData);
+
+        // Check for a question ID in the URL to jump to it
+        const queryParams = new URLSearchParams(location.search);
+        const questionId = queryParams.get('question');
+        if (questionId) {
+          const initialIndex = questionsData.findIndex(q => q.mcq_id === questionId);
+          if (initialIndex !== -1) {
+            setCurrentIndex(initialIndex);
+          }
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error("Failed to load replay data:", err);
@@ -36,7 +48,9 @@ const QuizReplayPage = () => {
       }
     }
     loadReplayData();
-  }, [subjectId, moduleId, attemptId]);
+  }, [subjectId, moduleId, attemptId, location.search]);
+  
+  
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {

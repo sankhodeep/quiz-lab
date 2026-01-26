@@ -5,6 +5,7 @@ import ModulePage from './pages/ModulePage';
 import QuizPage from './pages/QuizPage';
 import AttemptHistoryPage from './pages/AttemptHistoryPage';
 import QuizReplayPage from './pages/QuizReplayPage';
+import StatsPage from './pages/StatsPage';
 
 /**
  * The main application component.
@@ -52,6 +53,7 @@ function App() {
           <Route path="/history/:subjectId/:moduleId" element={<AttemptHistoryPage />} />
           <Route path="/quiz/:subjectId/:moduleId" element={<QuizPage />} />
           <Route path="/replay/:subjectId/:moduleId/:attemptId" element={<QuizReplayPage />} />
+          <Route path="/stats/:attemptId" element={<StatsPage />} />
         </Routes>
       </div>
     </Router>

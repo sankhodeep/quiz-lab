@@ -68,7 +68,7 @@ const AttemptHistoryPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">{attempt.percentage.toFixed(2)}%</td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <button className="text-blue-400 hover:text-blue-300 font-semibold mr-4">Stats</button>
+                      <Link to={`/stats/${attempt.id}`} className="text-blue-400 hover:text-blue-300 font-semibold mr-4">Stats</Link>
                       <Link to={`/replay/${subjectId}/${moduleId}/${attempt.id}`} className="text-blue-400 hover:text-blue-300 font-semibold">Replay</Link>
                     </td>
                   </tr>

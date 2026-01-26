@@ -85,6 +85,7 @@ const QuizPage = () => {
     });
   }, [subjectId, moduleId]);
 
+  
   // Timer Logic
   useEffect(() => {
     let interval;
@@ -173,6 +174,7 @@ const QuizPage = () => {
             console.error("Failed to update explanation time", error);
         }
     }
+    
 
     if (currentIndex >= questions.length - 1) {
         setQuizCompleted(true);
