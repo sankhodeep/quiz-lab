@@ -153,6 +153,11 @@ const QuizPage = () => {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === '1') {
+        const prevButton = document.getElementById('prev-btn');
+        if (prevButton && !prevButton.disabled) {
+          handlePrevious();
+        }
+      } else if (event.key === '2') {
         const nextButton = document.getElementById('next-btn');
         if (nextButton && !nextButton.disabled) {
           handleNext();

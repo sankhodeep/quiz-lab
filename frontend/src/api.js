@@ -113,3 +113,11 @@ export const getAttemptStats = async (attemptId) => {
   const response = await api.get(`/stats/${attemptId}`);
   return response.data;
 };
+
+/**
+ * Deletes a quiz attempt and its logs.
+ */
+export const deleteQuizAttempt = async (attemptId) => {
+  const response = await api.delete(`/attempts/${attemptId}`);
+  return response.data;
+};

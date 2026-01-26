@@ -250,6 +250,23 @@ def get_quiz_attempt(attempt_id: int, db: Session = Depends(get_db)):
     return attempt
 
 
+@app.delete("/attempts/{attempt_id}")
+def delete_quiz_attempt(attempt_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a specific quiz attempt and its associated logs.
+    """
+    attempt = db.query(QuizAttempt).filter(QuizAttempt.id == attempt_id).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Quiz attempt not found.")
+    
+    # Delete associated logs first
+    db.query(AttemptLog).filter(AttemptLog.quiz_attempt_id == attempt_id).delete()
+    
+    # Delete the attempt
+    db.delete(attempt)
+    db.commit()
+    return {"message": "Quiz attempt deleted successfully"}
+
 @app.get("/stats/{attempt_id}", response_model=StatsResponse)
 def get_attempt_stats(attempt_id: int, db: Session = Depends(get_db)):
     """

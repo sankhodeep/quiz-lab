@@ -66,6 +66,12 @@ const QuizReplayPage = () => {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === '1') {
+        // Find the previous button and check if it's not disabled
+        const prevButton = document.getElementById('prev-btn');
+        if (prevButton && !prevButton.disabled) {
+          handlePrevious();
+        }
+      } else if (event.key === '2') {
         // Find the next button and check if it's not disabled
         const nextButton = document.getElementById('next-btn');
         if (nextButton && !nextButton.disabled) {

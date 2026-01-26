@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getAttemptHistory, createQuizAttempt } from '../api';
-import { BookCopy, Clock, Percent, Target, Check, X, SkipForward } from 'lucide-react';
+import { getAttemptHistory, createQuizAttempt, deleteQuizAttempt } from '../api';
+import { BookCopy, Clock, Percent, Target, Check, X, SkipForward, Trash2 } from 'lucide-react';
 
 const AttemptHistoryPage = () => {
   const { subjectId, moduleId } = useParams();
@@ -28,6 +28,18 @@ const AttemptHistoryPage = () => {
     } catch (err) {
       console.error("Error starting new attempt:", err);
       // You might want to show an error to the user here
+    }
+  };
+
+  const handleDeleteAttempt = async (attemptId) => {
+    if (window.confirm("Are you sure you want to delete this attempt from history?")) {
+      try {
+        await deleteQuizAttempt(attemptId);
+        setHistory(prev => prev.filter(attempt => attempt.id !== attemptId));
+      } catch (err) {
+        console.error("Error deleting attempt:", err);
+        alert("Failed to delete attempt.");
+      }
     }
   };
 
@@ -69,7 +81,14 @@ const AttemptHistoryPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap">{attempt.percentage.toFixed(2)}%</td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <Link to={`/stats/${attempt.id}`} className="text-blue-400 hover:text-blue-300 font-semibold mr-4">Stats</Link>
-                      <Link to={`/replay/${subjectId}/${moduleId}/${attempt.id}`} className="text-blue-400 hover:text-blue-300 font-semibold">Replay</Link>
+                      <Link to={`/replay/${subjectId}/${moduleId}/${attempt.id}`} className="text-blue-400 hover:text-blue-300 font-semibold mr-4">Replay</Link>
+                      <button
+                        onClick={() => handleDeleteAttempt(attempt.id)}
+                        className="text-red-400 hover:text-red-300 font-semibold"
+                        title="Delete Attempt"
+                      >
+                        <Trash2 size={18} className="inline" />
+                      </button>
                     </td>
                   </tr>
                 ))}
